@@ -1,0 +1,16 @@
+[user]
+    email = kester@gmail.com
+    name = Kester Allen
+[credential]
+    helper = cache
+[alias]
+    st = -c core.fileMode=false status
+    difff = diff --word-diff --minimal
+    praise = blame
+
+[core]
+	fileMode = false
+[http]
+	sslVerify = false
+[commit]
+    verbose = true
