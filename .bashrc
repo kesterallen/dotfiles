@@ -3,7 +3,7 @@
 ################################################################################
 # General setup:
 #
-[ -f /etc/bashrc ] && . /etc/bashrc # Source global definitions
+[ -f /etc/bashrc ] && . /etc/bashrc
 [ -f /etc/bash_completion ] && . /etc/bash_completion || echo 'no bash completion' # bash completions
 [ -z $SSH_AUTH_SOCK ] && eval `ssh-agent -s` >/dev/null # start ssh-agent if not already running
 
@@ -84,7 +84,7 @@ shopt -s histappend
 ################################################################################
 # Aliases:
 #
-alias grep='egrep --color'
+alias grep='grep --color -E'
 alias page=less
 alias findgrep='find -type f | xargs grep'
 alias ls='ls -F --color'
@@ -101,6 +101,7 @@ alias vip='vim -c "set paste"'
 alias rm='rm -i'
 alias en='enscript -G -r -2'
 alias myps='ps -ef | grep -i'
+alias count='python ~/bin/count.py'
 alias cat='bat'
 alias sortlength="awk '{print length, \$0}' | sort -h"
 function spellingbee {
@@ -110,11 +111,12 @@ function spellingbee {
 
             spellingbee ontymax
     "
-    ([[ $# -ne 1 ]] || [[ ${#1} -ne 7 ]]) && echo "$usage" && return 1
+    [[ $# -ne 1 ]] || [[ ${#1} -ne 7 ]] && echo "$usage" && return 1
     allowed=$1
     required="${allowed:0:1}"
     grep -i "^[$allowed]+$" $WORDS | grep -i "$required" | sortlength
 }
+alias wordle="python3 /home/kester/Dropbox/gcloud/projects/sf_p3/surlyfritter/scripts/wordle_module.py"
 
 
 alias mplayer='mplayer -zoom -af volume'
@@ -138,24 +140,25 @@ alias wifispeed_speedtest='speedtest --simple --no-upload 2> /dev/null | grep Do
 alias wifispeed='(date +%F\ %R; (wifispeed_network && wifispeed_speedtest) || echo "no-network 0.0") | xargs'
 alias wifispeed_tee=' wifispeed | tee -a ~/Dropbox/export/apple_health_export/wifi_speed_data.txt'
 function testwifispeeds {
-    for ssid in $*; do
-        date
-        echo "swtiching to $ssid"
-        nmcli connection up $ssid > /dev/null;
-        sleep 120;
-        wifispeed_tee
-        sleep 600;
-    done
+  for ssid in $*; do
+    date
+    echo "swtiching to $ssid"
+    nmcli connection up $ssid > /dev/null;
+    sleep 120;
+    wifispeed_tee
+    sleep 600;
+  done
 }
 alias lynx='lynx -accept_all_cookies'
 #alias g++='g++ -Wall -g -lm'
 #alias gcc='gcc -Wall -g -lm'
-alias g++='g++ -Wall -g -lgsl -lgslcblas -lm'
-alias gcc='gcc -Wall -g -lgsl -lgslcblas -lm'
-alias gobj='\gcc -lgnustep-base -lobjc -lm -lc -I/usr/include/GNUstep'
+#alias g++='g++ -Wall -g -lgsl -lgslcblas -lm'
+#alias gcc='gcc -Wall -g -lgsl -lgslcblas -lm'
+#alias gobj='\gcc -lgnustep-base -lobjc -lm -lc -I/usr/include/GNUstep'
 #alias g++='g++ -Werror -Wall -Wpointer-arith -Wwrite-strings -Woverloaded-virtual -Wsynth -W -Wconversion -Wno-non-template-friend -Wno-long-long -Wsign-promo -Wundef -Wmissing-noreturn -Wcast-qual -g -lGL -lGLU -lglut'
-function g++gl { g++ -Werror -Wall -Wpointer-arith -Wwrite-strings -Woverloaded-virtual -Wsynth -W -Wconversion -Wno-non-template-friend -Wno-long-long -Wsign-promo -Wundef -Wmissing-noreturn -Wcast-qual -g $* -lGL -lX11 -lXmu -lGLU -lglut; }
-alias gccgl='gcc \!* -lGL -lX11 -lXmu -lGLU -lglut'
+#function g++gl { g++ -Werror -Wall -Wpointer-arith -Wwrite-strings -Woverloaded-virtual -Wsynth -W -Wconversion -Wno-non-template-friend -Wno-long-long -Wsign-promo -Wundef -Wmissing-noreturn -Wcast-qual -g $* -lGL -lX11 -lXmu -lGLU -lglut; }
+function gccgl { gcc $* -lGL -lX11 -lXmu -lGLU -lglut; }
+function g++gl { g++ $* -Wno-narrowing -lGL -lglut -lGLU; }
 
 alias mp3length='~/.virtualenv/discord-1.7.3/bin/python ~/bin/mp3length.py'
 function mp4tomp3 { ffmpeg -i $1 -vn -acodec libmp3lame -ac 2 -ab 160k -ar 48000 $2; }
@@ -167,14 +170,8 @@ function id3tag_all { cd ~/books && find . -type f | sort -n | grep -v '^$' | id
 function hist { [[ $# -lt 1 ]] && history || history | grep $*; }
 
 function flatten {
-    if [ $# -lt 1 ]; then
-        dir="."
-    else
-        dir=$1
-    fi
-
-    find $dir  -type f | sort -n | \
-        perl -nle '$_ =~ s/^\.\///; $post = $_; $post =~ s/\//_/g; print qq/cp "$_" "$post"/'
+  src=${1:-"."}
+  find $src -type f | perl -nle '$dst=$_; $dst=~s|[./]|_|g; print qq/cp "$_" "$dst"/'
 }
 
 # Dev machine connections:
@@ -199,6 +196,21 @@ alias dev189="connect_dev dev189" # Joe B
 
 alias restore_tmux="python3 ~/src/tmux_scripts/tmux_state_restore.py >| /tmp/tmp.sh && bash /tmp/tmp.sh"
 
+# Quick stdin plot
+# e.g.:  
+#    $ perl -le 'print $_, " ", $_**2 for 0..15' | plot_stdin
+#    $ perl -le 'print $_, " ", $_**2 for 0..15' | plot_stdin 'set log xy; set xlabel "distance"; set ylabel "velocity"; set title "demo plot"'
+function plot_stdin {
+    # 2 args, e.g.:
+    #   'set xlabel "distance"; set ylabel "velocity"' 
+    #    'using 1:3, "" using 1:2'
+    #
+    # 1 args, e.g.:
+    #    'set xlabel "distance"; set ylabel "velocity"'
+    PLOTDATA=/tmp/plot_stdin.dat
+    tee $PLOTDATA | gnuplot -p -e "$1; plot '$PLOTDATA' $2";
+}
+
 # Remote machine protocol RDP connections:
 #
 alias kallenlaptop_ip='xfreerdp /u:kallen /v:10.10.10.238 /h:668 /w:1266'
@@ -221,14 +233,14 @@ alias itunes_update='start_itunes_date=$(date); echo "rsync"; rsync -ah /media/k
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 
 function webcamremote { 
-    if [ $# -lt 1 ]; then
-        echo "specify remote IP"; return;
-    else
-        remote_ip=$1
-        ssh $remote_ip mplayer tv:// -tv driver=v4l2:device=/dev/video0:outfmt=rgb24 -frames 1 -vo jpeg && \
-            rsync $remote_ip:00000001.jpg . && \
-            display 00000001.jpg;
-    fi
+  if [ $# -lt 1 ]; then
+    echo "specify remote IP"; return;
+    exit 1
+  fi
+  remote_ip=$1
+  ssh $remote_ip mplayer tv:// -tv driver=v4l2:device=/dev/video0:outfmt=rgb24 -frames 1 -vo jpeg && \
+      rsync $remote_ip:00000001.jpg . && \
+      display 00000001.jpg;
 }
 
 #function wormcam rsync --rsync-path=/usr/bin/rsync --rsh='ssh -p2289' movie_2020050*_10th* storybo@storybookdachshunds.com:www/wormcam/
@@ -257,7 +269,7 @@ alias storybook='ssh -p2289 storybo@storybookdachshunds.com'
 #alias jeeves=ask
 #alias thes='browse --picksite 3'
 #alias x500='browse --picksite 4'
-#alias dictionary=dict 
+#alias dictionary=dict
 #alias thesaurus=thes
 
 #alias darkmatter='ssh -X kester@darkmatter.arc.nasa.gov'
@@ -299,7 +311,7 @@ alias storybook='ssh -p2289 storybo@storybookdachshunds.com'
 #alias inc='fetchmail -q; fetchmail -k; inc && pick -to commits | xargs refile +commits; fetchmail -q'
 #alias matlab='~/bin/matlab -desktop -r "dbstop if error; format long g; initialize_soc_variables;"'
 #alias matlabquiet='~/bin/matlab -nodesktop -nosplash -r "dbstop if error; format long g; initialize_soc_variables;"; stty echo'
-#function matlabfnquiet { ~/bin/matlab -nodesktop -nosplash -r "format long g; initialize_soc_variables;" -r "$*"; stty echo; } 
+#function matlabfnquiet { ~/bin/matlab -nodesktop -nosplash -r "format long g; initialize_soc_variables;" -r "$*"; stty echo; }
 #function far { ssh -X flux.arc.nasa.gov "ssh albedo $*"; }
 #function ds9 { ~/bin/ds9 $* -scale log -cmap bb -zoom to fit; }
 #alias javaPlot='java -jar ~/bin/javaPlot.jar'
@@ -308,3 +320,10 @@ alias storybook='ssh -p2289 storybo@storybookdachshunds.com'
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# fnm
+FNM_PATH="/home/kester/.local/share/fnm"
+if [ -d "$FNM_PATH" ]; then
+  export PATH="$FNM_PATH:$PATH"
+  eval "`fnm env`"
+fi
